@@ -48,8 +48,8 @@ jobs:
           pwd
           cd ${{ env.WORKDIR }}
           pwd
-          docker buildx build -t ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE }}:arm64_latest --platform=linux/amd64 --file ${{ env.DOCKERFILE }} . --push
-          docker buildx build -t ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE }}:${{ env.IMAGE_TAG }} --platform=linux/amd64 --file ${{ env.DOCKERFILE }} . --push
+          docker buildx build -t ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE }}:arm64_latest --platform=linux/arm64 --file ${{ env.DOCKERFILE }} . --push
+          docker buildx build -t ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE }}:${{ env.IMAGE_TAG }} --platform=linux/arm64 --file ${{ env.DOCKERFILE }} . --push
 
       - name: Delete workflow runs
         uses: GitRML/delete-workflow-runs@main
