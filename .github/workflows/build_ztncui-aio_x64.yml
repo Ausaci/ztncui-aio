@@ -6,6 +6,7 @@ on:
    # - cron: 35 21 * * 4
 
 env:
+  TZ: Asia/Shanghai
   WORKDIR: ztncui
   GIT_URL: https://github.com/key-networks/ztncui-aio.git
   GIT_BRANCH: master
@@ -24,6 +25,8 @@ jobs:
       - name: Install build dependencies
         run: |
           df -h
+          sudo timedatectl set-timezone "${{ env.TZ }}"
+          date
           # git clone 源代码至 ztncui 目录
           git clone -b ${{ env.GIT_BRANCH }} ${{ env.GIT_URL }} ${{ env.WORKDIR }}
 
