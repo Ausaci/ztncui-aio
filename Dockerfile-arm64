@@ -1,3 +1,52 @@
+FROM arm64v8/debian:bullseye-slim AS builder
+ENV NODEJS_MAJOR=16
+
+ARG DEBIAN_FRONTEND=noninteractive
+LABEL MAINTAINER="Key Networks https://key-networks.com"
+LABEL Description="ztncui (a ZeroTier network controller user interface) + ZeroTier network controller"
+ADD VERSION .
+
+# BUILD ZTNCUI IN FIRST STAGE
+WORKDIR /build
+RUN apt update -y && \
+    apt install curl gnupg2 ca-certificates zip unzip build-essential git --no-install-recommends -y && \
+    curl -sL -o node_inst.sh https://deb.nodesource.com/setup_${NODEJS_MAJOR}.x && \
+    bash node_inst.sh && \
+    apt install -y nodejs --no-install-recommends && \
+    rm -f node_inst.sh && \
+    git clone https://github.com/key-networks/ztncui && \
+    npm install -g node-gyp pkg && \
+    cd ztncui/src && \
+    npm install && \
+    pkg -c ./package.json -t "node${NODEJS_MAJOR}-linux-arm64" bin/www -o ztncui && \
+    zip -r /build/artifact.zip ztncui node_modules/argon2/build/Release
+
+# BUILD GO UTILS
+FROM arm64v8/golang:bullseye AS argong
+WORKDIR /buildsrc
+COPY argon2g /buildsrc/argon2g
+COPY fileserv /buildsrc/fileserv
+ENV GOOS=linux GOARCH=arm64 CGO_ENABLED=0
+RUN mkdir -p binaries && \
+    cd argon2g && \
+    go mod download && \
+    go build -ldflags='-s -w' -trimpath -o ../binaries/argon2g && \
+    cd .. && \
+    git clone https://github.com/jsha/minica && \
+    cd minica && \
+    go mod download && \
+    go build -ldflags='-s -w' -trimpath -o ../binaries/minica && \
+    cd .. && \
+    git clone https://github.com/tianon/gosu && \
+    cd gosu && \
+    go mod download && \
+    go build -o ../binaries/gosu -ldflags='-s -w' -trimpath && \
+    cd .. && \
+    cd fileserv && \
+    go build -ldflags='-s -w' -trimpath -o ../binaries/fileserv main.go
+
+
+# START RUNNER
 FROM arm64v8/debian:bullseye-slim AS runner
 RUN apt update -y && \
     apt install curl gnupg2 ca-certificates unzip supervisor net-tools procps --no-install-recommends -y && \
@@ -11,14 +60,14 @@ RUN apt update -y && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/key-networks/ztncui
-COPY build/artifact.zip .
+COPY --from=builder /build/artifact.zip .
 RUN unzip ./artifact.zip && \
     rm -f ./artifact.zip
 
-COPY buildsrc/binaries/gosu /bin/gosu
-COPY buildsrc/binaries/minica /usr/local/bin/minica
-COPY buildsrc/binaries/argon2g /usr/local/bin/argon2g
-COPY buildsrc/binaries/fileserv /usr/local/bin/gfileserv
+COPY --from=argong /buildsrc/binaries/gosu /bin/gosu
+COPY --from=argong /buildsrc/binaries/minica /usr/local/bin/minica
+COPY --from=argong /buildsrc/binaries/argon2g /usr/local/bin/argon2g
+COPY --from=argong /buildsrc/binaries/fileserv /usr/local/bin/gfileserv
 
 COPY start_zt1.sh /start_zt1.sh
 COPY start_ztncui.sh /start_ztncui.sh
