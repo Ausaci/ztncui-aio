@@ -43,7 +43,7 @@ jobs:
           docker buildx inspect mybuilder --bootstrap
           docker buildx ls
 
-      - name: Build Docker Image ${{ env.IMAGE }}
+      - name: Build Docker Image ${{ env.IMAGE }} ${{ env.IMAGE_TAG }}
         run: |
           pwd
           cd ${{ env.WORKDIR }}
